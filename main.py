@@ -488,7 +488,7 @@ def weather():
         precip = str(parsed["current"]["precip_mm"])
         
         # build the weather string
-        weather = temp +" C  "+ condition + "  Precip:" +precip+" mm  Wind: "+wind + " kph "+wind_dir+"  Cloud %: "+cloud+"  UV lvl: "+uv 
+        weather = "  Temp: "+temp +" C  "+ condition + "  Precip:" +precip+" mm  Wind: "+wind + " kph "+wind_dir+"  Cloud %: "+cloud+"  UV lvl: "+uv 
         
         # times to scroll before returning to the clock
         s.weather = weather
@@ -553,11 +553,11 @@ async def main():
             # shift it by 3 pixels to centre the display
             s.sideshift(3)
             # wait a bit.....
-            time.sleep(0.05)
+            #time.sleep(0.05)
 
         update(s.bytearray)  # send all data to the matrix collection
         
-        await asyncio.sleep(0.25)
+        await asyncio.sleep(0.02)
 
 
 try:
