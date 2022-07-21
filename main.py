@@ -1,8 +1,9 @@
 import machine
 import time
 import network
-import urequests
+from urequests import get
 import uasyncio as asyncio
+import json
 
 # On board LED used for diagnostics. Pico W specific
 led = machine.Pin("LED", machine.Pin.OUT)
@@ -110,11 +111,11 @@ font_8x5 = {
     "]": [0b10000010, 0b11111110],
     "^": [0b01000000, 0b10000000, 0b01000000],
     "_": [0b00000010, 0b00000010, 0b00000010, 0b00000010],
-    "¬": [0b01000000, 0b01000000, 0b01000100, 0b01001100, 0b01111100, 0b01001100, 0b01001100, 0b00001100, 0b01011100,
-          0b01111100, 0b01101100, 0b11000000, 0b11000000, 0b01000000, 0b01000000, 0b01000000],
-    "`": [0b00100000, 0b01100000, 0b01110000, 0b01100000, 0b00100000, 0b00100000, 0b00100000, 0b00100000, 0b00100000,
-          0b00100000, 0b00100000, 0b01100000, 0b01110100, 0b01111100, 0b11111100, 0b11111100, 0b11011100, 0b00001100,
-          0b00000100, 0b00000100, 0b00000100, 0b00000100]}
+    "¬": [0b00100000, 0b00100000, 0b00100010, 0b00100110, 0b00111110, 0b00100110, 0b00100110, 0b00000110, 0b00101110,
+          0b00111110, 0b00110110, 0b01100000, 0b01100000, 0b00100000, 0b00100000, 0b00100000],
+    "`": [0b00010000, 0b00110000, 0b00111000, 0b00110000, 0b00010000, 0b00010000, 0b00010000, 0b00010000, 0b00010000,
+          0b00010000, 0b00010000, 0b00110000, 0b00111010, 0b00111110, 0b01111110, 0b01111110, 0b01101110, 0b00000110,
+          0b00000010, 0b00000010, 0b00000010, 0b00000010]}
 
 
 # These last two have been taken for sprites - NCC 1701 and a Klingon battlecruiser. Don't judge me :)
@@ -142,6 +143,10 @@ class Sure3208:
         self.message = ""
         self.justify = 1 # justify mode. 0 is none (left justify), 1 = centre (default) 2 = right !!!RIGHT NOT IMPLEMENTED YET!!!
         self.scroll = 0
+        self.countdown =0 # to set if you want the data to be temporary
+        self.weather = ""
+        
+        
         # Now apply all the startup CMD's to all the screens
         for f in range(len(self.cs)):
             for t in range(len(self.cmds)):
@@ -318,16 +323,16 @@ brightnessX = set brightness (X = 1-16)<br>
 
 </body></html>"""
 
-    print("Client connected")
+    #print("Client connected")
     request_line = await reader.readline()
-    print("Request:", request_line)
+    #print("Request:", request_line)
     # We are not interested in HTTP request headers, skip them
     while await reader.readline() != b"\r\n":
         pass
     # print(request.post('http://httpbin.org/post', json={"text": "value"}))
 
     request = str(request_line)
-    print(request)
+    #print(request)
     m_rec = ""
     try:
         if request.index("message") != -1:
@@ -337,25 +342,31 @@ brightnessX = set brightness (X = 1-16)<br>
             m_rec = m_rec.replace("+", " ")
 
         else:
-            print("No Message")
+            pass
+            #print("No Message")
 
     except ValueError:
-        print("Not found!")
+        pass
+        #print("Not found!")
 
     if m_rec != "":
-        print(m_rec)
+        
         old_message = s.message
         old_scroll = s.scroll
         # set message and reset scroll value
 
         m_rec = parse_url(m_rec)
-
+        print(m_rec)
         s.message = m_rec
         s.scroll = 0
 
         # override if it's a command word
         if m_rec.lower() == "clock":
             s.message = ""
+            s.scroll = 0
+        
+        if m_rec.lower() == "weather":
+            s.message = weather()
             s.scroll = 0
 
         if m_rec[:10].lower() == "brightness":
@@ -404,12 +415,12 @@ brightnessX = set brightness (X = 1-16)<br>
 
     await writer.drain()
     await writer.wait_closed()
-    print("Client disconnected")
+    #print("Client disconnected")
 
 
 def get_json_time():
     # get the time from the network
-    r = urequests.get("http://date.jsontest.com")
+    r = get("http://date.jsontest.com")
     t = r.json()
     return t
 
@@ -456,7 +467,37 @@ def parse_url(url):
     return temp
 
 
+def weather():
+    weather = ""
+    
+    try:
+        # get the weather - use your own API and location
+        #                                                   API*******************************API   
+        r = get("http://api.weatherapi.com/v1/current.json?key=*******************************&q=LOCATION%20COUNTRY")
 
+        parsed = r.json()
+        #print (parsed)
+
+        # Get some data from the JSON
+        temp = str(parsed["current"]["temp_c"])
+        condition = str(parsed["current"]["condition"]["text"])
+        wind = str(parsed["current"]["wind_kph"])
+        wind_dir = str(parsed["current"]["wind_dir"])
+        cloud = str(parsed["current"]["cloud"])
+        uv = str(parsed["current"]["uv"])
+        precip = str(parsed["current"]["precip_mm"])
+        
+        # build the weather string
+        weather = temp +" C  "+ condition + "  Precip:" +precip+" mm  Wind: "+wind + " kph "+wind_dir+"  Cloud %: "+cloud+"  UV lvl: "+uv 
+        
+        # times to scroll before returning to the clock
+        s.weather = weather
+        s.countdown = 5*32*s.num_screens # 5 scrolls is enough to get the data once and a bit on 3 screens
+    except:
+        # It didn't work :(
+        weather = "Weather Failed"
+        s.countdown = 10 # short message
+    return weather
 
 
 
@@ -485,7 +526,11 @@ async def main():
     
         # empty the instance byte buffer
         s.fill(0)
-        
+        if s.countdown>0:
+            s.countdown = s.countdown-1
+            
+            if s.countdown==0:
+                s.message = ""
         # It's a message to display
         if s.message != "":
             s.write_text(s.message, s.scroll)
@@ -535,7 +580,8 @@ try:
     led.on()
     
     set_machine_rtc()
-
+    s.weather = weather()
+    print(s.weather)
     asyncio.run(main())
 
 finally:
