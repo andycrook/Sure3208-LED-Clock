@@ -1,5 +1,7 @@
 import machine
 import time
+from font import *  # import all fonts in the font file
+import random
 
 # On board LED used for diagnostics. Pico W specific
 led = machine.Pin("LED", machine.Pin.OUT)
@@ -40,87 +42,12 @@ PWM_DUTY_14 = 0b100_1010_1101_0
 PWM_DUTY_15 = 0b100_1010_1110_0
 PWM_DUTY_16 = 0b100_1010_1111_0
 
-# Custom font. Numbers all the same width to easily justify numbver display together
-# without pixel shifts moving from 01 to 02 etc
-# Custom sprites allowed as well
-font_8x5 = {
-    " ": [0b00000000],
-    "!": [0b11111010],
-    '"': [0b11000000, 0b00000000, 0b11000000],
-    "~": [0b00101000, 0b01111100, 0b00101000, 0b01111100, 0b00101000],
-    "$": [0b00100100, 0b01010110, 0b11010100, 0b01001000],
-    "%": [0b11000110, 0b11001000, 0b00010000, 0b00100110, 0b11000110],
-    "&": [0b01101100, 0b10010010, 0b01101010, 0b00000100, 0b00001010],
-    "'": [0b11000000],
-    "(": [0b00111000, 0b01000100, 0b10000010],
-    ")": [0b10000010, 0b01000100, 0b00111000],
-    "*": [0b00010100, 0b00011000, 0b01110000, 0b00011000, 0b00010100],
-    "+": [0b00010000, 0b00010000, 0b01111100, 0b00010000, 0b00010000],
-    ",": [0b00001101, 0b00001110],
-    "-": [0b00010000, 0b00010000, 0b00010000, 0b00010000],
-    ".": [0b00000010],
-    "/": [0b00000110, 0b00111000, 0b11000000],
-    "0": [0b01111100, 0b10000010, 0b10000010, 0b01111100],
-    "1": [0b01000010, 0b11111110, 0b00000010, 0b00000000],
-    "2": [0b01000110, 0b10001010, 0b10010010, 0b01100010],
-    "3": [0b01000100, 0b10000010, 0b10010010, 0b01101100],
-    "4": [0b00011000, 0b00101000, 0b01001000, 0b11111110],
-    "5": [0b11100100, 0b10100010, 0b10100010, 0b10011100],
-    "6": [0b01111100, 0b10010010, 0b10010010, 0b01001100],
-    "7": [0b10000110, 0b10001000, 0b10010000, 0b11100000],
-    "8": [0b01101100, 0b10010010, 0b10010010, 0b01101100],
-    "9": [0b01100100, 0b10010010, 0b10010010, 0b01111100],
-    ":": [0b01000100],
-    ";": [0b00000001, 0b00001010],
-    "<": [0b00001000, 0b00010100, 0b00100010],
-    "=": [0b00101000, 0b00101000, 0b00101000],
-    ">": [0b00100010, 0b00010100, 0b00001000],
-    "?": [0b01000000, 0b10011010, 0b10010000, 0b01100000],
-    "@": [0b01111100, 0b10010010, 0b10101010, 0b10111010, 0b01110000],
-    "A": [0b01111110, 0b10001000, 0b10001000, 0b01111110],
-    "B": [0b11111110, 0b10010010, 0b10010010, 0b01101100],
-    "C": [0b01111100, 0b10000010, 0b10000010, 0b01000100],
-    "D": [0b11111110, 0b10000010, 0b10000010, 0b01111100],
-    "E": [0b11111110, 0b10010010, 0b10010010, 0b10000010],
-    "F": [0b11111110, 0b10010000, 0b10010000, 0b10000000],
-    "G": [0b01111100, 0b10000010, 0b10010010, 0b01011110],
-    "H": [0b11111110, 0b00010000, 0b00010000, 0b11111110],
-    "I": [0b10000010, 0b11111110, 0b10000010],
-    "J": [0b00001100, 0b00000010, 0b10000010, 0b11111100],
-    "K": [0b11111110, 0b00010000, 0b00101000, 0b11000110],
-    "L": [0b11111110, 0b00000010, 0b00000010, 0b00000010],
-    "M": [0b11111110, 0b01000000, 0b00110000, 0b01000000, 0b11111110],
-    "N": [0b11111110, 0b00100000, 0b00010000, 0b00001000, 0b11111110],
-    "O": [0b01111100, 0b10000010, 0b10000010, 0b01111100],
-    "P": [0b11111110, 0b10010000, 0b10010000, 0b01100000],
-    "Q": [0b01111100, 0b10000010, 0b10000010, 0b01111101],
-    "R": [0b11111110, 0b10010000, 0b10010000, 0b01101110],
-    "S": [0b01100100, 0b10010010, 0b10010010, 0b01001100],
-    "T": [0b10000000, 0b10000000, 0b11111110, 0b10000000, 0b10000000],
-    "U": [0b11111100, 0b00000010, 0b00000010, 0b11111100],
-    "V": [0b11110000, 0b00001100, 0b00000010, 0b00001100, 0b11110000],
-    "W": [0b11111100, 0b00000010, 0b00011100, 0b00000010, 0b11111100],
-    "X": [0b11000110, 0b00101000, 0b00010000, 0b00101000, 0b11000110],
-    "Y": [0b11100000, 0b00010000, 0b00001110, 0b00010000, 0b11100000],
-    "Z": [0b10000110, 0b10001010, 0b10010010, 0b11100010],
-    "[": [0b11111110, 0b10000010],
-    "\\": [0b10000000, 0b01100000, 0b00011000, 0b00000110],
-    "]": [0b10000010, 0b11111110],
-    "^": [0b01000000, 0b10000000, 0b01000000],
-    "_": [0b00000010, 0b00000010, 0b00000010, 0b00000010],
-    "¬": [0b00100000, 0b00100000, 0b00100010, 0b00100110, 0b00111110, 0b00100110, 0b00100110, 0b00000110, 0b00101110,
-          0b00111110, 0b00110110, 0b01100000, 0b01100000, 0b00100000, 0b00100000, 0b00100000],
-    "`": [0b00010000, 0b00110000, 0b00111000, 0b00110000, 0b00010000, 0b00010000, 0b00010000, 0b00010000, 0b00010000,
-          0b00010000, 0b00010000, 0b00110000, 0b00111010, 0b00111110, 0b01111110, 0b01111110, 0b01101110, 0b00000110,
-          0b00000010, 0b00000010, 0b00000010, 0b00000010]}
 
-
-# These last two have been taken for sprites - NCC 1701 and a Klingon battlecruiser. Don't judge me :)
 
 
 # Class for the Sure 3208 led single colour matrix
 class Sure3208:
-    def __init__(self, wr_pin, data_pin, cs_pin=[], CMDS=[]):
+    def __init__(self, wr_pin, data_pin, font, cs_pin=[], CMDS=[]):
         # CS pins are given as a list in the initialisation of the instance
         # CMDS are also given as a list that are applied to all the matrices on startup
         self.cs = cs_pin
@@ -144,8 +71,9 @@ class Sure3208:
         self.scroll_direction = -1  # -1 = left by 1
         self.delay = -1   # -1 is auto mode
         self.delay_auto = (4-(self.num_screens))*(0.02)
+        self.font = font
+        self.vertical = 0
         
-       
         # Now apply all the startup CMD's to all the screens
         for f in range(len(self.cs)):
             for t in range(len(self.cmds)):
@@ -158,21 +86,14 @@ class Sure3208:
 
         # Go through bits and put them in a list (the right way round)
         bit_list = [(bits >> shift_index) & 1 for shift_index in range(length)]
-        #bit_list.reverse()
 
         self.cs[screen].off()  # prepare the matrix for data
 
-        for bit in bit_list[::-1]:  # loop through the bits from the data
-
-            #value_when_true if condition else value_when_false
+        for bit in bit_list[::-1]:  # loop through the bits from the data in reverse
+            # set the data pin for the bit
             self.data.on() if bit==1 else self.data.off()
-
-#             if bit == 1:  # set the data pin to the bit data
-#                 self.data.on()
-#             else:
-#                 self.data.off()
-
-            self.wr.off()  # cycle the WR pin to set the bit
+            # cycle the WR pin to set the bit in teh matrix
+            self.wr.off() 
             self.wr.on()
 
         self.cs[screen].on()  # close the matrix for data
@@ -180,17 +101,24 @@ class Sure3208:
     def render(self, text):
         # were going to render the text to a full bytes buffer
         b = 0
-        text = text.upper() # No lowercase in font, convert
+        
         length = 0
        
         # write all characters to b
         for character in text:
             try:
-                b = self.write_chr(b, font_8x5[character])
-                length = length + 1 + len(font_8x5[character])
+                b = self.write_chr(b, self.font[character])
+                length = length + 1 + len(self.font[character])
 
             except:
-                print("CHR NOT FOUND")
+                # is there an upper case variant? Check.... default should be upper for a font...
+                try:
+                    b = self.write_chr(b, self.font[character.upper()])
+                    length = length + 1 + len(self.font[character.upper()])
+
+                except:
+ 
+                    print("CHR NOT FOUND")
                
                
         b=b >> 8 # to remove the last space put on after the last character
@@ -242,10 +170,14 @@ class Sure3208:
                 scroll = self.scroll
                 
                 for byt in self.bytes_buffer:
-                    if scroll>(self.num_screens*32):
+                    # shift scroll to be within ranbge of screen
+                    while scroll>(self.num_screens*32):
                         scroll =scroll-(self.num_screens*32)
-                    
-                    if scroll<len(self.bytearray):
+                    while scroll<0:
+                        scroll =scroll-(self.num_screens*32)
+                        
+                    # check if it's in bounds
+                    if scroll>-1 and scroll<len(self.bytearray):
                         new_b[scroll] = byt
                     scroll = scroll+1
                     
@@ -314,9 +246,12 @@ class Sure3208:
         
         for b in range(len(self.bytearray)):
             self.bytearray[b] = self.bytes_buffer[b]
-           
+            
+        if self.vertical != 0:
+            
+           self.vertical_shift(self.vertical)
         # if we're scrolling, then rotate the buffer
-           
+        # 1 = scroll only if long, 0 = no scroll, 2 = forced scroll   
         if scroll_mode == 1 and len(self.bytes_buffer)> len(self.bytearray):
             # scroll only if the message is bigger than the screen
             self.rotate(self.scroll)
@@ -325,20 +260,36 @@ class Sure3208:
             
             if abs(self.scroll) == len(self.bytes_buffer):
                 self.scroll=0
-            
-            
-            
+     
         if scroll_mode == 2 :
             # force scroll
             self.rotate(self.scroll)
-        # 1 = scroll only if long, 0 = no scroll, 2 = forced scroll
-       
-       
+      
         self.update_matrix()
        
        
 
-       
+    def vertical_shift(self,value):
+        
+        if value<0:
+            value = value*-1
+            for byte in range(len(self.bytearray)):
+                self.bytearray[byte] =  (self.bytearray[byte] >>value) & 255
+        else:
+            for byte in range(len(self.bytearray)):
+                self.bytearray[byte] =  (self.bytearray[byte] <<value) & 255
+  
+    def matrix_rain(self,value1,value2):
+        self.vertical_shift(-1)
+          
+        for byte in range(len(self.bytearray)):
+            if random.randrange(value1)==1 or self.bytearray[byte]>=64:
+                self.bytearray[byte] = self.bytearray[byte] | 128
+                if random.randrange(value2)==1 and self.bytearray[byte] >127:
+                     self.bytearray[byte] =self.bytearray[byte] -128
+                
+      
+      
 
     def write_chr(self, by, c):
         # c is a list of binay data to add to by and returns it
@@ -358,18 +309,15 @@ class Sure3208:
         temp=bytearray(len(self.bytes_buffer))
         
         for f in range(len(self.bytes_buffer)):
+            
             if (f+value)>len(self.bytes_buffer):
                 temp[(f+value)-len(self.bytes_buffer)] = self.bytes_buffer[f]
+                
             if (f+value)<0:
                 temp[(f+value)+len(self.bytes_buffer)] = self.bytes_buffer[f]
                 
-                
-                
             if (f+value)>=0 and (f+value)<len(self.bytes_buffer):
                 temp[f+value] = self.bytes_buffer[f]
-       
-       
-        
        
         for i in range(len(self.bytearray)):
             
@@ -377,8 +325,56 @@ class Sure3208:
                
         
        
+# init the matrix                     Matrix CS pins       CMDs for init
+s = Sure3208(WR_PIN, DATA_PIN, font_8x5, [4,5,6], [SYS_EN, LED_On, RC_Master_Mode, PWM_DUTY_10])
 
-s = Sure3208(WR_PIN, DATA_PIN, [4,5,6], [SYS_EN, LED_On, RC_Master_Mode, PWM_DUTY_10])
+s.fill(0)
+s.vertical =0 
+s.justify =1
+s.render("Matrix Rain")
+s.update(1)
+time.sleep(2)
+s.bytes_buffer = s.bytearray
+for f in range(300):
+    # parameter1 = frequency of drop lines parameter 2 = frequency of drop line breaking (higher = less frequent)
+
+    s.matrix_rain(10,4)  
+    s.update(1)
+
+
+
+
+
+
+s.fill(0)
+s.vertical =0 
+s.justify =1
+s.render("Vertical Shift")
+s.update(1)
+time.sleep(2)    
+    
+
+for f in range(8):
+    s.vertical= f*-1
+    s.update(1)
+
+
+s.fill(0)
+s.vertical =0 
+s.justify =1
+s.render("Vertical Shift")
+s.update(1)
+time.sleep(2)    
+    
+
+for f in range(8):
+    s.vertical = f
+    s.update(1)
+
+
+s.vertical = 0
+
+
 
 
 s.fill(0)
@@ -420,11 +416,19 @@ s.render("Manual")
 s.update(1)
 time.sleep(1)
 
+
+s.fill(0)
+s.justify =1
+s.render("_ New @ : 17")
+s.update(1)
+time.sleep(3)
+
+
 s.fill(0)
 s.justify =3
 s.scroll =0
 s.scroll_direction = -1
-s.render("long message scrolling to the left")
+s.render("Long message scrolling to the left")
 s.update(1)
 time.sleep(1)
 
@@ -437,7 +441,23 @@ s.fill(0)
 s.justify =3
 s.scroll =0
 s.scroll_direction = 1
-s.render("long message scrolling to the right")
+s.render("Long message scrolling to the right")
+s.update(1)
+time.sleep(1)
+
+
+count =200
+while count>1:
+    s.update(1)
+    count = count -1
+    
+    
+s.fill(0)
+s.justify =3
+s.scroll =0
+s.delay =0
+s.scroll_direction = -1
+s.render("Fastest possible scrolling with delay = 0")
 s.update(1)
 time.sleep(1)
 
@@ -445,6 +465,13 @@ count =200
 while count>1:
     s.update(1)
     count = count -1
+    
+    
+
+  
+    
+    
+    
     
     
 s.fill(0)
@@ -481,7 +508,7 @@ s.fill(0)
 s.justify =1
 s.scroll =0
 s.scroll_direction = -1
-s.render("sure 3208 micropython driver for raspberry pi pico w by andy crook")
+s.render("Sure 3208 Micropython driver for Raspberry PI Pico W by Andy Crook")
   
 while 1:
     s.update(1) # 1 = scroll only if long, 0 = no scroll, 2 = forced scroll
