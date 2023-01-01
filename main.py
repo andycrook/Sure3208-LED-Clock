@@ -1,4 +1,4 @@
-from sure3208SPI import *
+from sure3208 import *
 from font import *  # import all fonts in the font file
 import machine
 import time
